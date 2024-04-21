@@ -1,0 +1,6 @@
+{
+  "ignore": ["node_modules"],
+  "watch": [".dist"],
+  "exec": "npm start",
+  "ext": "js"
+}
