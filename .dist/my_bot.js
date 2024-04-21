@@ -16,8 +16,6 @@ var MyBot = /** @class */ (function () {
             var orders = [];
             var me = inspector.getMe();
             var ballPosition = inspector.getBall().getPosition();
-            // const ballRegion = this.mapper.getRegionFromPoint(ballPosition)
-            // const myRegion = this.mapper.getRegionFromPoint(me.getPosition())
             // by default, I will stay at my tactic position
             var moveDestination = (0, settings_1.getMyExpectedPosition)(inspector, this.mapper, this.number);
             if (this.shouldIHelp(me, inspector.getMyTeamPlayers(), ballPosition, 3)) {
@@ -37,16 +35,12 @@ var MyBot = /** @class */ (function () {
         try {
             var orders = [];
             var me = inspector.getMe();
-            var myRegion = this.mapper.getRegionFromPoint(me.getPosition());
             var ballPosition = inspector.getBall().getPosition();
             // by default, I will stay at my tactic position
             var moveDestination = (0, settings_1.getMyExpectedPosition)(inspector, this.mapper, this.number);
             if (this.shouldIHelp(me, inspector.getMyTeamPlayers(), ballPosition, 3)) {
                 moveDestination = ballPosition;
             }
-            // if (this.mapper.getRegionFromPoint(ballPosition).getCol() < MAPPER_COLS / 3) {
-            //   moveDestination = this.mapper.getRegion(0, myRegion.getRow()).getCenter();
-            // }
             var moveOrder = inspector.makeOrderMoveMaxSpeed(moveDestination);
             var catchOrder = inspector.makeOrderCatch();
             if (this.holdPosition(inspector)) {
@@ -67,27 +61,33 @@ var MyBot = /** @class */ (function () {
             var attackGoalCenter = this.mapper.getAttackGoal().getCenter();
             var opponentGoal = this.mapper.getRegionFromPoint(attackGoalCenter);
             var myRegion = this.mapper.getRegionFromPoint(me.getPosition());
-            var nearestOpponentRegion = this.mapper.getRegionFromPoint(this.getNearestOpponent(me, inspector.getOpponentPlayers()).getPosition());
             var nearestAlly = this.getNearestAlly(me, inspector.getMyTeamPlayers());
             var orders = [];
             var myOrder = inspector.makeOrderMoveMaxSpeed(attackGoalCenter);
-            console.log("attack goal center -> x: ".concat(attackGoalCenter.getX(), ", y: ").concat(attackGoalCenter.getY()));
             // tocar bola
-            for (var _i = 0, _a = inspector.getOpponentPlayers(); _i < _a.length; _i++) {
-                var opponent = _a[_i];
-                if (this.equalRegion(this.mapper.getRegionFromPoint(opponent.getPosition()), myRegion.front())) {
-                    console.log("toca pro teu homem ");
+            //
+            // pegar aliado mais proximo que nao esta na minha regiao
+            var lastDistance = lugo4node_1.SPECS.FIELD_WIDTH;
+            for (var _i = 0, _a = inspector.getMyTeamPlayers(); _i < _a.length; _i++) {
+                var ally = _a[_i];
+                var distanceBetweenMeAndPlayer = lugo4node_1.geo.distanceBetweenPoints(me.getPosition(), ally.getPosition());
+                if (this.equalRegion(this.mapper.getRegionFromPoint(ally.getPosition()), myRegion)) {
+                    continue;
+                }
+                if (distanceBetweenMeAndPlayer < lastDistance && me.getNumber() != ally.getNumber()) {
+                    nearestAlly = ally;
+                }
+                lastDistance = distanceBetweenMeAndPlayer;
+            }
+            for (var _b = 0, _c = inspector.getOpponentPlayers(); _b < _c.length; _b++) {
+                var opponent = _c[_b];
+                if (this.equalRegion(this.mapper.getRegionFromPoint(opponent.getPosition()), myRegion.front()) && opponent.getNumber() != 1) { // o numero 1 e o numero do goleiro
                     myOrder = inspector.makeOrderKickMaxSpeed(nearestAlly.getPosition());
                     break;
                 }
             }
-            // if (this.equalRegion(nearestOpponentRegion, myRegion.front())) {
-            //   console.log("toca pro teu homem ")
-            //   myOrder = inspector.makeOrderKickMaxSpeed(nearestAlly.getPosition())
-            // }
             // chutar pro gol
             if (this.isINear(myRegion, opponentGoal, 1)) {
-                console.log("chuta pro gol");
                 var goalCorner = this.getGoalCorner(inspector);
                 myOrder = inspector.makeOrderKickMaxSpeed(goalCorner);
             }
@@ -135,7 +135,12 @@ var MyBot = /** @class */ (function () {
                 // meio em cima fo camplo
                 var target = new proto_exported_1.Point();
                 target.setX(lugo4node_1.SPECS.FIELD_WIDTH / 2);
-                target.setY(lugo4node_1.SPECS.MAX_Y_COORDINATE);
+                if (this.mostOpponentSide(inspector) == "bot") {
+                    target.setY(lugo4node_1.SPECS.MAX_Y_COORDINATE);
+                }
+                else {
+                    target.setY(0);
+                }
                 var kickOrder = inspector.makeOrderKickMaxSpeed(target);
                 orders.push(kickOrder);
             }
@@ -213,7 +218,22 @@ var MyBot = /** @class */ (function () {
         var expectedPosition = (0, settings_1.getMyExpectedPosition)(inspector, this.mapper, this.number);
         return lugo4node_1.geo.distanceBetweenPoints(inspector.getMe().getPosition(), expectedPosition) < lugo4node_1.SPECS.PLAYER_SIZE;
     };
-    MyBot.prototype.opponentInFront = function (inspector) {
+    MyBot.prototype.mostOpponentSide = function (inspector) {
+        var topCount = 0;
+        var botCount = 0;
+        for (var _i = 0, _a = inspector.getOpponentPlayers(); _i < _a.length; _i++) {
+            var op = _a[_i];
+            var opPos = op.getPosition();
+            if (!opPos || op.getNumber() == 1)
+                continue;
+            if (this.mapper.getRegionFromPoint(opPos).getRow() <= settings_1.MAPPER_ROWS / 2) {
+                topCount++;
+            }
+            else {
+                botCount++;
+            }
+        }
+        return (topCount > botCount) ? "top" : "bot";
     };
     return MyBot;
 }());

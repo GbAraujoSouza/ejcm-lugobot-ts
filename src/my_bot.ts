@@ -1,8 +1,7 @@
 `use strict`;
 import { Bot, GameSnapshotInspector, Lugo, Mapper, PLAYER_STATE, distanceBetweenPoints, Region, geo, SPECS } from '@lugobots/lugo4node'
-import { getMyExpectedPosition, MAPPER_COLS } from './settings';
+import { getMyExpectedPosition, MAPPER_COLS, MAPPER_ROWS } from './settings';
 import { Point } from '@lugobots/lugo4node/dist/proto_exported';
-// import { Order } from '@lugobots/lugo4node/dist/proto_exported';
 
 type MethodReturn = Lugo.Order[] | { orders: Lugo.Order[]; debug_message: string; } | null;
 
@@ -28,9 +27,6 @@ export class MyBot implements Bot {
       const orders = []
       const me = inspector.getMe()
       const ballPosition = inspector.getBall().getPosition()
-
-      // const ballRegion = this.mapper.getRegionFromPoint(ballPosition)
-      // const myRegion = this.mapper.getRegionFromPoint(me.getPosition())
 
       // by default, I will stay at my tactic position
       let moveDestination = getMyExpectedPosition(inspector, this.mapper, this.number)
@@ -58,7 +54,6 @@ export class MyBot implements Bot {
     try {
       const orders = []
       const me = inspector.getMe()
-      const myRegion = this.mapper.getRegionFromPoint(me.getPosition());
       const ballPosition = inspector.getBall().getPosition()
 
       // by default, I will stay at my tactic position
@@ -67,9 +62,6 @@ export class MyBot implements Bot {
       if (this.shouldIHelp(me, inspector.getMyTeamPlayers(), ballPosition, 3)) {
         moveDestination = ballPosition;
       }
-      // if (this.mapper.getRegionFromPoint(ballPosition).getCol() < MAPPER_COLS / 3) {
-      //   moveDestination = this.mapper.getRegion(0, myRegion.getRow()).getCenter();
-      // }
       const moveOrder = inspector.makeOrderMoveMaxSpeed(moveDestination)
       const catchOrder = inspector.makeOrderCatch()
 
@@ -92,30 +84,35 @@ export class MyBot implements Bot {
       const attackGoalCenter = this.mapper.getAttackGoal().getCenter();
       const opponentGoal = this.mapper.getRegionFromPoint(attackGoalCenter)
       const myRegion = this.mapper.getRegionFromPoint(me.getPosition())
-      const nearestOpponentRegion = this.mapper.getRegionFromPoint(this.getNearestOpponent(me, inspector.getOpponentPlayers()).getPosition())
-      const nearestAlly = this.getNearestAlly(me, inspector.getMyTeamPlayers())
+      let nearestAlly = this.getNearestAlly(me, inspector.getMyTeamPlayers())
 
       const orders = []
       let myOrder= inspector.makeOrderMoveMaxSpeed(attackGoalCenter)
-      console.log(`attack goal center -> x: ${attackGoalCenter.getX()}, y: ${attackGoalCenter.getY()}`)
 
       // tocar bola
+      //
+      // pegar aliado mais proximo que nao esta na minha regiao
+      let lastDistance = SPECS.FIELD_WIDTH;
+      for (const ally of inspector.getMyTeamPlayers()) {
+        const distanceBetweenMeAndPlayer = geo.distanceBetweenPoints(me.getPosition(), ally.getPosition());
+        if (this.equalRegion(this.mapper.getRegionFromPoint(ally.getPosition()), myRegion)) {
+          continue;
+        }
+        if (distanceBetweenMeAndPlayer < lastDistance && me.getNumber() != ally.getNumber()) {
+          nearestAlly = ally;
+        }
+        lastDistance = distanceBetweenMeAndPlayer;
+      }
+
       for (const opponent of inspector.getOpponentPlayers()) {
-        if (this.equalRegion(this.mapper.getRegionFromPoint(opponent.getPosition()), myRegion.front())) {
-          console.log("toca pro teu homem ")
+        if (this.equalRegion(this.mapper.getRegionFromPoint(opponent.getPosition()), myRegion.front()) && opponent.getNumber() != 1) { // o numero 1 e o numero do goleiro
           myOrder = inspector.makeOrderKickMaxSpeed(nearestAlly.getPosition())
           break;
         }
       }
 
-      // if (this.equalRegion(nearestOpponentRegion, myRegion.front())) {
-      //   console.log("toca pro teu homem ")
-      //   myOrder = inspector.makeOrderKickMaxSpeed(nearestAlly.getPosition())
-      // }
-
       // chutar pro gol
       if (this.isINear(myRegion, opponentGoal, 1)) {
-        console.log("chuta pro gol")
         const goalCorner = this.getGoalCorner(inspector);
         myOrder = inspector.makeOrderKickMaxSpeed(goalCorner);
       }
@@ -168,7 +165,11 @@ export class MyBot implements Bot {
         // meio em cima fo camplo
         const target = new Point();
         target.setX(SPECS.FIELD_WIDTH / 2)
-        target.setY(SPECS.MAX_Y_COORDINATE);
+        if (this.mostOpponentSide(inspector) == "bot") {
+          target.setY(SPECS.MAX_Y_COORDINATE);
+        } else {
+          target.setY(0);
+        }
         const kickOrder = inspector.makeOrderKickMaxSpeed(target);
         orders.push(kickOrder);
       }
@@ -250,8 +251,19 @@ export class MyBot implements Bot {
     const expectedPosition = getMyExpectedPosition(inspector, this.mapper, this.number);
     return geo.distanceBetweenPoints(inspector.getMe().getPosition(), expectedPosition) < SPECS.PLAYER_SIZE
   }
-  private opponentInFront(inspector: GameSnapshotInspector) {
-
+  private mostOpponentSide(inspector: GameSnapshotInspector){
+    let topCount = 0;
+    let botCount = 0;
+    for (const op of inspector.getOpponentPlayers()) {
+      const opPos = op.getPosition();
+      if (!opPos || op.getNumber() == 1) continue;
+      if (this.mapper.getRegionFromPoint(opPos).getRow() <= MAPPER_ROWS / 2){
+        topCount++;
+      }else {
+        botCount++;
+      }
+    }
+    return (topCount > botCount) ? "top" : "bot";
   }
 }
 
