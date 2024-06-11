@@ -12,10 +12,15 @@ var MyBot = /** @class */ (function () {
         this.initPosition = initPosition;
     }
     MyBot.prototype.onDisputing = function (inspector) {
+        var _a;
         try {
             var orders = [];
             var me = inspector.getMe();
-            var ballPosition = inspector.getBall().getPosition();
+            if (!me)
+                return orders;
+            var ballPosition = (_a = inspector.getBall()) === null || _a === void 0 ? void 0 : _a.getPosition();
+            if (!ballPosition)
+                return orders;
             // by default, I will stay at my tactic position
             var moveDestination = (0, settings_1.getMyExpectedPosition)(inspector, this.mapper, this.number);
             if (this.shouldIHelp(me, inspector.getMyTeamPlayers(), ballPosition, 3)) {
@@ -32,10 +37,15 @@ var MyBot = /** @class */ (function () {
         }
     };
     MyBot.prototype.onDefending = function (inspector) {
+        var _a;
         try {
             var orders = [];
             var me = inspector.getMe();
-            var ballPosition = inspector.getBall().getPosition();
+            if (!me)
+                return orders;
+            var ballPosition = (_a = inspector.getBall()) === null || _a === void 0 ? void 0 : _a.getPosition();
+            if (!ballPosition)
+                return orders;
             // by default, I will stay at my tactic position
             var moveDestination = (0, settings_1.getMyExpectedPosition)(inspector, this.mapper, this.number);
             if (this.shouldIHelp(me, inspector.getMyTeamPlayers(), ballPosition, 3)) {
@@ -70,8 +80,11 @@ var MyBot = /** @class */ (function () {
             var lastDistance = lugo4node_1.SPECS.FIELD_WIDTH;
             for (var _i = 0, _a = inspector.getMyTeamPlayers(); _i < _a.length; _i++) {
                 var ally = _a[_i];
-                var distanceBetweenMeAndPlayer = lugo4node_1.geo.distanceBetweenPoints(me.getPosition(), ally.getPosition());
-                if (this.equalRegion(this.mapper.getRegionFromPoint(ally.getPosition()), myRegion)) {
+                var allyPosition = ally.getPosition();
+                if (!allyPosition)
+                    return orders;
+                var distanceBetweenMeAndPlayer = lugo4node_1.geo.distanceBetweenPoints(me.getPosition(), allyPosition);
+                if (this.equalRegion(this.mapper.getRegionFromPoint(allyPosition), myRegion)) {
                     continue;
                 }
                 if (distanceBetweenMeAndPlayer < lastDistance && me.getNumber() != ally.getNumber()) {
@@ -81,13 +94,16 @@ var MyBot = /** @class */ (function () {
             }
             for (var _b = 0, _c = inspector.getOpponentPlayers(); _b < _c.length; _b++) {
                 var opponent = _c[_b];
-                if (this.equalRegion(this.mapper.getRegionFromPoint(opponent.getPosition()), myRegion.front()) && opponent.getNumber() != 1) { // o numero 1 e o numero do goleiro
+                var opponentPosition = opponent.getPosition();
+                if (!opponentPosition)
+                    return orders;
+                if (this.equalRegion(this.mapper.getRegionFromPoint(opponentPosition), myRegion.front()) && opponent.getNumber() != 1) { // o numero 1 e o numero do goleiro
                     myOrder = inspector.makeOrderKickMaxSpeed(nearestAlly.getPosition());
                     break;
                 }
             }
             // chutar pro gol
-            if (this.isINear(myRegion, opponentGoal, 1)) {
+            if (this.isINear(myRegion, opponentGoal, 2)) {
                 var goalCorner = this.getGoalCorner(inspector);
                 myOrder = inspector.makeOrderKickMaxSpeed(goalCorner);
             }
@@ -104,13 +120,17 @@ var MyBot = /** @class */ (function () {
         try {
             var orders = [];
             var me = inspector.getMe();
-            // if (!me) return orders;
+            var myPosition = me.getPosition();
+            if (!me || !myPosition)
+                return orders;
             var ballHolderPosition = (_a = inspector.getBall()) === null || _a === void 0 ? void 0 : _a.getPosition();
+            if (!ballHolderPosition)
+                return orders;
             var moveDestination = (0, settings_1.getMyExpectedPosition)(inspector, this.mapper, this.number);
             if (this.shouldIHelp(me, inspector.getMyTeamPlayers(), ballHolderPosition, 3)) {
                 moveDestination = ballHolderPosition;
             }
-            if (lugo4node_1.geo.distanceBetweenPoints(me.getPosition(), ballHolderPosition) < 3 * lugo4node_1.SPECS.PLAYER_SIZE || this.holdPosition(inspector)) {
+            if (lugo4node_1.geo.distanceBetweenPoints(myPosition, ballHolderPosition) < 3 * lugo4node_1.SPECS.PLAYER_SIZE || this.holdPosition(inspector)) {
                 var stopOrder = inspector.makeOrderMoveToStop();
                 orders.push(stopOrder);
                 return orders;
@@ -125,9 +145,12 @@ var MyBot = /** @class */ (function () {
         }
     };
     MyBot.prototype.asGoalkeeper = function (inspector, state) {
+        var _a, _b;
         try {
             var orders = [];
-            var position = inspector.getBall().getPosition();
+            var position = (_a = inspector.getBall()) === null || _a === void 0 ? void 0 : _a.getPosition();
+            if (!position)
+                return orders;
             if (state !== lugo4node_1.PLAYER_STATE.DISPUTING_THE_BALL) {
                 position = this.mapper.getDefenseGoal().getCenter();
             }
@@ -144,6 +167,17 @@ var MyBot = /** @class */ (function () {
                 var kickOrder = inspector.makeOrderKickMaxSpeed(target);
                 orders.push(kickOrder);
             }
+            var ballPosition = (_b = inspector.getBall()) === null || _b === void 0 ? void 0 : _b.getPosition();
+            if (!ballPosition)
+                return orders;
+            //(state === PLAYER_STATE.DEFENDING && this.mapper.getRegionFromPoint(ballPosition).getCol() < 3)
+            if ((state === lugo4node_1.PLAYER_STATE.DISPUTING_THE_BALL && this.mapper.getRegionFromPoint(ballPosition).getCol() < 2)) {
+                var jumpOrder = inspector.makeOrderJump(this.mapper.getDefenseGoal().getCenter(), lugo4node_1.SPECS.GOAL_KEEPER_JUMP_SPEED);
+                orders.push(inspector.makeOrderMove(ballPosition, lugo4node_1.SPECS.PLAYER_MAX_SPEED), jumpOrder, inspector.makeOrderCatch());
+                console.log("Jumped");
+                return orders;
+            }
+            console.log("did not jumped");
             var myOrder = inspector.makeOrderMoveMaxSpeed(position);
             orders.push(myOrder, inspector.makeOrderCatch());
             return orders;
@@ -165,10 +199,16 @@ var MyBot = /** @class */ (function () {
     };
     MyBot.prototype.shouldIHelp = function (me, myTeam, targetPosition, maxHelpers) {
         var nearestPlayers = 0;
-        var myDistance = lugo4node_1.geo.distanceBetweenPoints(me.getPosition(), targetPosition);
+        var myPosition = me.getPosition();
+        if (!myPosition)
+            return false;
+        var myDistance = lugo4node_1.geo.distanceBetweenPoints(myPosition, targetPosition);
         for (var _i = 0, myTeam_1 = myTeam; _i < myTeam_1.length; _i++) {
             var teamMate = myTeam_1[_i];
-            if (teamMate.getNumber() != me.getNumber() && lugo4node_1.geo.distanceBetweenPoints(teamMate.getPosition(), targetPosition) < myDistance) {
+            var teamMatePosition = teamMate.getPosition();
+            if (!teamMatePosition)
+                return false;
+            if (teamMate.getNumber() != me.getNumber() && lugo4node_1.geo.distanceBetweenPoints(teamMatePosition, targetPosition) < myDistance) {
                 nearestPlayers++;
                 if (nearestPlayers >= maxHelpers) {
                     return false;
@@ -180,9 +220,15 @@ var MyBot = /** @class */ (function () {
     MyBot.prototype.getNearestAlly = function (me, myPlayers) {
         var nearestPlayer;
         var lastDistance = lugo4node_1.SPECS.FIELD_WIDTH;
+        var myPosition = me.getPosition();
+        if (!myPosition)
+            return nearestPlayer;
         for (var _i = 0, myPlayers_1 = myPlayers; _i < myPlayers_1.length; _i++) {
             var player = myPlayers_1[_i];
-            var distanceBetweenMeAndPlayer = lugo4node_1.geo.distanceBetweenPoints(me.getPosition(), player.getPosition());
+            var playerPosition = player.getPosition();
+            if (!playerPosition)
+                return nearestPlayer;
+            var distanceBetweenMeAndPlayer = lugo4node_1.geo.distanceBetweenPoints(myPosition, playerPosition);
             if (distanceBetweenMeAndPlayer < lastDistance && me.getNumber() != player.getNumber()) {
                 nearestPlayer = player;
             }
