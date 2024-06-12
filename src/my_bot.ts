@@ -91,7 +91,7 @@ export class MyBot implements Bot {
       let nearestAlly = this.getNearestAlly(me, inspector.getMyTeamPlayers())
 
       const orders: Order[] = []
-      let myOrder= inspector.makeOrderMoveMaxSpeed(attackGoalCenter)
+      let myOrder = [inspector.makeOrderMoveMaxSpeed(attackGoalCenter)]
 
       // tocar bola
       //
@@ -105,7 +105,7 @@ export class MyBot implements Bot {
         if (this.equalRegion(this.mapper.getRegionFromPoint(allyPosition), myRegion)) {
           continue;
         }
-        if (distanceBetweenMeAndPlayer < lastDistance && me.getNumber() != ally.getNumber()) {
+        if (distanceBetweenMeAndPlayer < lastDistance && me.getNumber() != ally.getNumber() && allyPosition.getX() > me.getPosition().getX()) {
           nearestAlly = ally;
         }
         lastDistance = distanceBetweenMeAndPlayer;
@@ -115,8 +115,8 @@ export class MyBot implements Bot {
         const opponentPosition = opponent.getPosition();
         if (!opponentPosition) return orders;
 
-        if (this.equalRegion(this.mapper.getRegionFromPoint(opponentPosition), myRegion.front()) && opponent.getNumber() != 1) { // o numero 1 e o numero do goleiro
-          myOrder = inspector.makeOrderKickMaxSpeed(nearestAlly.getPosition())
+        if (this.equalRegion(this.mapper.getRegionFromPoint(opponentPosition), myRegion) && opponent.getNumber() != 1 && opponentPosition.getX() > me.getPosition().getX()) { // o numero 1 e o numero do goleiro
+          myOrder = [inspector.makeOrderMoveMaxSpeed(nearestAlly.getPosition()), inspector.makeOrderKickMaxSpeed(nearestAlly.getPosition())]
           break;
         }
       }
@@ -124,11 +124,11 @@ export class MyBot implements Bot {
       // chutar pro gol
       if (this.isINear(myRegion, opponentGoal, 2)) {
         const goalCorner = this.getGoalCorner(inspector);
-        myOrder = inspector.makeOrderKickMaxSpeed(goalCorner);
+        myOrder = [inspector.makeOrderKickMaxSpeed(goalCorner)];
       }
 
 
-      orders.push(myOrder)
+      orders.push(...myOrder)
       return orders
     } catch (e) {
       console.log(`did not play this turn`, e)

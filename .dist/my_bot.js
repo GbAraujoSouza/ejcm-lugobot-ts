@@ -73,7 +73,7 @@ var MyBot = /** @class */ (function () {
             var myRegion = this.mapper.getRegionFromPoint(me.getPosition());
             var nearestAlly = this.getNearestAlly(me, inspector.getMyTeamPlayers());
             var orders = [];
-            var myOrder = inspector.makeOrderMoveMaxSpeed(attackGoalCenter);
+            var myOrder = [inspector.makeOrderMoveMaxSpeed(attackGoalCenter)];
             // tocar bola
             //
             // pegar aliado mais proximo que nao esta na minha regiao
@@ -87,7 +87,7 @@ var MyBot = /** @class */ (function () {
                 if (this.equalRegion(this.mapper.getRegionFromPoint(allyPosition), myRegion)) {
                     continue;
                 }
-                if (distanceBetweenMeAndPlayer < lastDistance && me.getNumber() != ally.getNumber()) {
+                if (distanceBetweenMeAndPlayer < lastDistance && me.getNumber() != ally.getNumber() && allyPosition.getX() > me.getPosition().getX()) {
                     nearestAlly = ally;
                 }
                 lastDistance = distanceBetweenMeAndPlayer;
@@ -97,17 +97,17 @@ var MyBot = /** @class */ (function () {
                 var opponentPosition = opponent.getPosition();
                 if (!opponentPosition)
                     return orders;
-                if (this.equalRegion(this.mapper.getRegionFromPoint(opponentPosition), myRegion.front()) && opponent.getNumber() != 1) { // o numero 1 e o numero do goleiro
-                    myOrder = inspector.makeOrderKickMaxSpeed(nearestAlly.getPosition());
+                if (this.equalRegion(this.mapper.getRegionFromPoint(opponentPosition), myRegion) && opponent.getNumber() != 1 && opponentPosition.getX() > me.getPosition().getX()) { // o numero 1 e o numero do goleiro
+                    myOrder = [inspector.makeOrderMoveMaxSpeed(nearestAlly.getPosition()), inspector.makeOrderKickMaxSpeed(nearestAlly.getPosition())];
                     break;
                 }
             }
             // chutar pro gol
             if (this.isINear(myRegion, opponentGoal, 2)) {
                 var goalCorner = this.getGoalCorner(inspector);
-                myOrder = inspector.makeOrderKickMaxSpeed(goalCorner);
+                myOrder = [inspector.makeOrderKickMaxSpeed(goalCorner)];
             }
-            orders.push(myOrder);
+            orders.push.apply(orders, myOrder);
             return orders;
         }
         catch (e) {
