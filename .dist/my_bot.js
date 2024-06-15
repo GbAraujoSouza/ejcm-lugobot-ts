@@ -1,3 +1,4 @@
+//@ts-nocheck
 "use strict";
 exports.__esModule = true;
 exports.MyBot = void 0;
@@ -22,7 +23,7 @@ var MyBot = /** @class */ (function () {
             if (!ballPosition)
                 return orders;
             // by default, I will stay at my tactic position
-            var moveDestination = (0, settings_1.getMyExpectedPosition)(inspector, this.mapper, this.number);
+            var moveDestination = (0, settings_1.getMyExpectedPosition)("NORMAL", this.mapper, this.number);
             if (this.shouldIHelp(me, inspector.getMyTeamPlayers(), ballPosition, 3)) {
                 moveDestination = ballPosition;
             }
@@ -46,18 +47,21 @@ var MyBot = /** @class */ (function () {
             var ballPosition = (_a = inspector.getBall()) === null || _a === void 0 ? void 0 : _a.getPosition();
             if (!ballPosition)
                 return orders;
-            // by default, I will stay at my tactic position
-            var moveDestination = (0, settings_1.getMyExpectedPosition)(inspector, this.mapper, this.number);
-            if (this.shouldIHelp(me, inspector.getMyTeamPlayers(), ballPosition, 3)) {
+            var moveDestination = null;
+            if (this.shouldIHelp(me, inspector.getMyTeamPlayers(), ballPosition, 2)) {
                 moveDestination = ballPosition;
+                var moveOrder_1 = inspector.makeOrderMoveMaxSpeed(moveDestination);
+                var catchOrder = inspector.makeOrderCatch();
+                orders.push(moveOrder_1, catchOrder);
+                return orders;
             }
+            moveDestination = (0, settings_1.getMyExpectedPosition)("DEFENSIVE", this.mapper, this.number);
             var moveOrder = inspector.makeOrderMoveMaxSpeed(moveDestination);
-            var catchOrder = inspector.makeOrderCatch();
-            if (this.holdPosition(inspector)) {
+            if (this.holdPosition("DEFENSIVE", inspector)) {
                 orders.push(inspector.makeOrderMoveToStop());
                 return orders;
             }
-            orders.push(moveOrder, catchOrder);
+            orders.push(moveOrder);
             return orders;
         }
         catch (e) {
@@ -87,7 +91,9 @@ var MyBot = /** @class */ (function () {
                 if (this.equalRegion(this.mapper.getRegionFromPoint(allyPosition), myRegion)) {
                     continue;
                 }
-                if (distanceBetweenMeAndPlayer < lastDistance && me.getNumber() != ally.getNumber() && allyPosition.getX() > me.getPosition().getX()) {
+                if (distanceBetweenMeAndPlayer < lastDistance &&
+                    me.getNumber() != ally.getNumber() &&
+                    allyPosition.getX() > me.getPosition().getX()) {
                     nearestAlly = ally;
                 }
                 lastDistance = distanceBetweenMeAndPlayer;
@@ -97,8 +103,14 @@ var MyBot = /** @class */ (function () {
                 var opponentPosition = opponent.getPosition();
                 if (!opponentPosition)
                     return orders;
-                if (this.equalRegion(this.mapper.getRegionFromPoint(opponentPosition), myRegion) && opponent.getNumber() != 1 && opponentPosition.getX() > me.getPosition().getX()) { // o numero 1 e o numero do goleiro
-                    myOrder = [inspector.makeOrderMoveMaxSpeed(nearestAlly.getPosition()), inspector.makeOrderKickMaxSpeed(nearestAlly.getPosition())];
+                if (this.equalRegion(this.mapper.getRegionFromPoint(opponentPosition), myRegion) &&
+                    opponent.getNumber() != 1 &&
+                    opponentPosition.getX() > me.getPosition().getX()) {
+                    // o numero 1 e o numero do goleiro
+                    myOrder = [
+                        inspector.makeOrderMoveMaxSpeed(nearestAlly.getPosition()),
+                        inspector.makeOrderKickMaxSpeed(nearestAlly.getPosition()),
+                    ];
                     break;
                 }
             }
@@ -126,11 +138,13 @@ var MyBot = /** @class */ (function () {
             var ballHolderPosition = (_a = inspector.getBall()) === null || _a === void 0 ? void 0 : _a.getPosition();
             if (!ballHolderPosition)
                 return orders;
-            var moveDestination = (0, settings_1.getMyExpectedPosition)(inspector, this.mapper, this.number);
+            var moveDestination = (0, settings_1.getMyExpectedPosition)("OFFENSIVE", this.mapper, this.number);
             if (this.shouldIHelp(me, inspector.getMyTeamPlayers(), ballHolderPosition, 3)) {
                 moveDestination = ballHolderPosition;
             }
-            if (lugo4node_1.geo.distanceBetweenPoints(myPosition, ballHolderPosition) < 3 * lugo4node_1.SPECS.PLAYER_SIZE || this.holdPosition(inspector)) {
+            if (lugo4node_1.geo.distanceBetweenPoints(myPosition, ballHolderPosition) <
+                3 * lugo4node_1.SPECS.PLAYER_SIZE ||
+                this.holdPosition(inspector)) {
                 var stopOrder = inspector.makeOrderMoveToStop();
                 orders.push(stopOrder);
                 return orders;
@@ -171,7 +185,8 @@ var MyBot = /** @class */ (function () {
             if (!ballPosition)
                 return orders;
             //(state === PLAYER_STATE.DEFENDING && this.mapper.getRegionFromPoint(ballPosition).getCol() < 3)
-            if ((state === lugo4node_1.PLAYER_STATE.DISPUTING_THE_BALL && this.mapper.getRegionFromPoint(ballPosition).getCol() < 2)) {
+            if (state === lugo4node_1.PLAYER_STATE.DISPUTING_THE_BALL &&
+                this.mapper.getRegionFromPoint(ballPosition).getCol() < 2) {
                 var jumpOrder = inspector.makeOrderJump(this.mapper.getDefenseGoal().getCenter(), lugo4node_1.SPECS.GOAL_KEEPER_JUMP_SPEED);
                 orders.push(inspector.makeOrderMove(ballPosition, lugo4node_1.SPECS.PLAYER_MAX_SPEED), jumpOrder, inspector.makeOrderCatch());
                 console.log("Jumped");
@@ -197,6 +212,18 @@ var MyBot = /** @class */ (function () {
         var rowDist = myPosition.getRow() - targetPosition.getRow();
         return Math.hypot(colDist, rowDist) <= dist;
     };
+    MyBot.prototype.nearToPoint = function (myTeam, targetPosition) {
+        var closest = myTeam[0];
+        var lastDistance = lugo4node_1.geo.distanceBetweenPoints(closest.getPosition(), targetPosition);
+        myTeam.forEach(function (player) {
+            var currentDistance = lugo4node_1.geo.distanceBetweenPoints(player.getPosition(), targetPosition);
+            if (lastDistance > currentDistance) {
+                closest = player;
+                lastDistance = currentDistance;
+            }
+        });
+        return closest;
+    };
     MyBot.prototype.shouldIHelp = function (me, myTeam, targetPosition, maxHelpers) {
         var nearestPlayers = 0;
         var myPosition = me.getPosition();
@@ -208,7 +235,8 @@ var MyBot = /** @class */ (function () {
             var teamMatePosition = teamMate.getPosition();
             if (!teamMatePosition)
                 return false;
-            if (teamMate.getNumber() != me.getNumber() && lugo4node_1.geo.distanceBetweenPoints(teamMatePosition, targetPosition) < myDistance) {
+            if (teamMate.getNumber() != me.getNumber() &&
+                lugo4node_1.geo.distanceBetweenPoints(teamMatePosition, targetPosition) < myDistance) {
                 nearestPlayers++;
                 if (nearestPlayers >= maxHelpers) {
                     return false;
@@ -229,7 +257,8 @@ var MyBot = /** @class */ (function () {
             if (!playerPosition)
                 return nearestPlayer;
             var distanceBetweenMeAndPlayer = lugo4node_1.geo.distanceBetweenPoints(myPosition, playerPosition);
-            if (distanceBetweenMeAndPlayer < lastDistance && me.getNumber() != player.getNumber()) {
+            if (distanceBetweenMeAndPlayer < lastDistance &&
+                me.getNumber() != player.getNumber()) {
                 nearestPlayer = player;
             }
             lastDistance = distanceBetweenMeAndPlayer;
@@ -250,7 +279,8 @@ var MyBot = /** @class */ (function () {
         return nearestOpponent;
     };
     MyBot.prototype.equalRegion = function (region1, region2) {
-        return region1.getCol() == region2.getCol() && region1.getRow() == region2.getRow();
+        return (region1.getCol() == region2.getCol() &&
+            region1.getRow() == region2.getRow());
     };
     MyBot.prototype.getGoalCorner = function (inspector) {
         var _a;
@@ -260,9 +290,9 @@ var MyBot = /** @class */ (function () {
             return this.mapper.getAttackGoal().getBottomPole();
         return this.mapper.getAttackGoal().getTopPole();
     };
-    MyBot.prototype.holdPosition = function (inspector) {
-        var expectedPosition = (0, settings_1.getMyExpectedPosition)(inspector, this.mapper, this.number);
-        return lugo4node_1.geo.distanceBetweenPoints(inspector.getMe().getPosition(), expectedPosition) < lugo4node_1.SPECS.PLAYER_SIZE;
+    MyBot.prototype.holdPosition = function (state, inspector) {
+        var expectedPosition = (0, settings_1.getMyExpectedPosition)(state, this.mapper, this.number);
+        return (lugo4node_1.geo.distanceBetweenPoints(inspector.getMe().getPosition(), expectedPosition) < lugo4node_1.SPECS.PLAYER_SIZE);
     };
     MyBot.prototype.mostOpponentSide = function (inspector) {
         var topCount = 0;
@@ -279,7 +309,7 @@ var MyBot = /** @class */ (function () {
                 botCount++;
             }
         }
-        return (topCount > botCount) ? "top" : "bot";
+        return topCount > botCount ? "top" : "bot";
     };
     return MyBot;
 }());

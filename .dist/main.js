@@ -8,7 +8,9 @@ var mapper = new lugo4node_1.Mapper(settings_1.MAPPER_COLS, settings_1.MAPPER_RO
 var initialRegion = mapper.getRegion(settings_1.PLAYER_INITIAL_POSITIONS[config.getBotNumber()].Col, settings_1.PLAYER_INITIAL_POSITIONS[config.getBotNumber()].Row);
 var lugoClient = (0, lugo4node_1.NewClientFromConfig)(config, initialRegion.getCenter());
 var myBot = new my_bot_1.MyBot(config.getBotTeamSide(), config.getBotNumber(), initialRegion.getCenter(), mapper);
-lugoClient.playAsBot(myBot).then(function () {
+lugoClient
+    .playAsBot(myBot)
+    .then(function () {
     console.log("Game over");
 })["catch"](function (e) {
     console.error(e);
