@@ -1,4 +1,3 @@
-//@ts-nocheck
 `use strict`;
 import {
   Bot,
@@ -54,23 +53,28 @@ export class MyBot implements Bot {
       const ballPosition = inspector.getBall()?.getPosition();
       if (!ballPosition) return orders;
 
-      // by default, I will stay at my tactic position
-      let moveDestination = getMyExpectedPosition(
-        "NORMAL",
-        this.mapper,
-        this.number
-      );
-
-      if (this.shouldIHelp(me, inspector.getMyTeamPlayers(), ballPosition, 3)) {
+      let moveDestination: Point | null = null;
+      if (this.shouldIHelp(me, inspector.getMyTeamPlayers(), ballPosition, 2)) {
         moveDestination = ballPosition;
+        const moveOrder = inspector.makeOrderMoveMaxSpeed(moveDestination);
+        const catchOrder = inspector.makeOrderCatch();
+
+        orders.push(moveOrder, catchOrder);
+        return orders;
       }
-
+      const ballRegion = this.mapper.getRegionFromPoint(
+        inspector.getBall().getPosition()
+      );
+      const inOurField = ballRegion.getCol() <= MAPPER_COLS / 2;
+      const state = inOurField ? "DEFENSIVE" : "OFFENSIVE";
+      moveDestination = getMyExpectedPosition(state, this.mapper, this.number);
+      if (!moveDestination) return orders;
       const moveOrder = inspector.makeOrderMoveMaxSpeed(moveDestination);
-
-      const catchOrder = inspector.makeOrderCatch();
-
-      orders.push(moveOrder, catchOrder);
-
+      if (this.holdPosition(state, inspector)) {
+        orders.push(inspector.makeOrderMoveToStop());
+        return orders;
+      }
+      orders.push(moveOrder);
       return orders;
     } catch (e) {
       console.log(`did not play this turn`, e);
@@ -87,7 +91,7 @@ export class MyBot implements Bot {
       const ballPosition = inspector.getBall()?.getPosition();
       if (!ballPosition) return orders;
 
-      let moveDestination = null;
+      let moveDestination: Point | null = null;
       if (this.shouldIHelp(me, inspector.getMyTeamPlayers(), ballPosition, 2)) {
         moveDestination = ballPosition;
         const moveOrder = inspector.makeOrderMoveMaxSpeed(moveDestination);
@@ -96,17 +100,20 @@ export class MyBot implements Bot {
         orders.push(moveOrder, catchOrder);
         return orders;
       }
-      moveDestination = getMyExpectedPosition(
-        "DEFENSIVE",
-        this.mapper,
-        this.number
+      const ballRegion = this.mapper.getRegionFromPoint(
+        inspector.getBall().getPosition()
       );
+      const inOurField = ballRegion.getCol() <= MAPPER_COLS / 2;
+      const state = inOurField ? "DEFENSIVE" : "OFFENSIVE";
+      moveDestination = getMyExpectedPosition(state, this.mapper, this.number);
+      if (!moveDestination) return orders;
       const moveOrder = inspector.makeOrderMoveMaxSpeed(moveDestination);
-      if (this.holdPosition("DEFENSIVE", inspector)) {
+      if (this.holdPosition(state, inspector)) {
         orders.push(inspector.makeOrderMoveToStop());
         return orders;
       }
       orders.push(moveOrder);
+
       return orders;
     } catch (e) {
       console.log(`did not play this turn`, e);
@@ -197,38 +204,34 @@ export class MyBot implements Bot {
       const myPosition = me.getPosition();
       if (!me || !myPosition) return orders;
 
-      const ballHolderPosition = inspector.getBall()?.getPosition();
-      if (!ballHolderPosition) return orders;
+      const ballPosition = inspector.getBall()?.getPosition();
+      if (!ballPosition) return orders;
 
-      let moveDestination = getMyExpectedPosition(
-        "OFFENSIVE",
-        this.mapper,
-        this.number
+      let moveDestination: Point | null = null;
+      /* if (this.shouldIHelp(me, inspector.getMyTeamPlayers(), ballPosition, 2)) {
+        const currentRegion = this.mapper.getRegionFromPoint(me.getPosition());
+        const y = currentRegion.getRow();
+        const x = currentRegion.getCol();
+        moveDestination = this.mapper.getRegion(y, x).getCenter();
+
+        const moveOrder = inspector.makeOrderMoveMaxSpeed(moveDestination);
+        orders.push(moveOrder);
+        return orders;
+      } */
+      const ballRegion = this.mapper.getRegionFromPoint(
+        inspector.getBall().getPosition()
       );
-
-      if (
-        this.shouldIHelp(
-          me,
-          inspector.getMyTeamPlayers(),
-          ballHolderPosition,
-          3
-        )
-      ) {
-        moveDestination = ballHolderPosition;
-      }
-
-      if (
-        geo.distanceBetweenPoints(myPosition, ballHolderPosition) <
-          3 * SPECS.PLAYER_SIZE ||
-        this.holdPosition(inspector)
-      ) {
-        const stopOrder = inspector.makeOrderMoveToStop();
-        orders.push(stopOrder);
+      const inOurField = ballRegion.getCol() <= MAPPER_COLS / 2;
+      const state = inOurField ? "DEFENSIVE" : "OFFENSIVE";
+      moveDestination = getMyExpectedPosition(state, this.mapper, this.number);
+      if (!moveDestination) return orders;
+      const moveOrder = inspector.makeOrderMoveMaxSpeed(moveDestination);
+      if (this.holdPosition(state, inspector)) {
+        orders.push(inspector.makeOrderMoveToStop());
         return orders;
       }
+      orders.push(moveOrder);
 
-      const myOrder = inspector.makeOrderMoveMaxSpeed(moveDestination);
-      orders.push(myOrder);
       return orders;
     } catch (e) {
       console.log(`did not play this turn`, e);

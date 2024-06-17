@@ -1,4 +1,3 @@
-//@ts-nocheck
 "use strict";
 exports.__esModule = true;
 exports.MyBot = void 0;
@@ -22,14 +21,26 @@ var MyBot = /** @class */ (function () {
             var ballPosition = (_a = inspector.getBall()) === null || _a === void 0 ? void 0 : _a.getPosition();
             if (!ballPosition)
                 return orders;
-            // by default, I will stay at my tactic position
-            var moveDestination = (0, settings_1.getMyExpectedPosition)("NORMAL", this.mapper, this.number);
-            if (this.shouldIHelp(me, inspector.getMyTeamPlayers(), ballPosition, 3)) {
+            var moveDestination = null;
+            if (this.shouldIHelp(me, inspector.getMyTeamPlayers(), ballPosition, 2)) {
                 moveDestination = ballPosition;
+                var moveOrder_1 = inspector.makeOrderMoveMaxSpeed(moveDestination);
+                var catchOrder = inspector.makeOrderCatch();
+                orders.push(moveOrder_1, catchOrder);
+                return orders;
             }
+            var ballRegion = this.mapper.getRegionFromPoint(inspector.getBall().getPosition());
+            var inOurField = ballRegion.getCol() <= settings_1.MAPPER_COLS / 2;
+            var state = inOurField ? "DEFENSIVE" : "OFFENSIVE";
+            moveDestination = (0, settings_1.getMyExpectedPosition)(state, this.mapper, this.number);
+            if (!moveDestination)
+                return orders;
             var moveOrder = inspector.makeOrderMoveMaxSpeed(moveDestination);
-            var catchOrder = inspector.makeOrderCatch();
-            orders.push(moveOrder, catchOrder);
+            if (this.holdPosition(state, inspector)) {
+                orders.push(inspector.makeOrderMoveToStop());
+                return orders;
+            }
+            orders.push(moveOrder);
             return orders;
         }
         catch (e) {
@@ -50,14 +61,19 @@ var MyBot = /** @class */ (function () {
             var moveDestination = null;
             if (this.shouldIHelp(me, inspector.getMyTeamPlayers(), ballPosition, 2)) {
                 moveDestination = ballPosition;
-                var moveOrder_1 = inspector.makeOrderMoveMaxSpeed(moveDestination);
+                var moveOrder_2 = inspector.makeOrderMoveMaxSpeed(moveDestination);
                 var catchOrder = inspector.makeOrderCatch();
-                orders.push(moveOrder_1, catchOrder);
+                orders.push(moveOrder_2, catchOrder);
                 return orders;
             }
-            moveDestination = (0, settings_1.getMyExpectedPosition)("DEFENSIVE", this.mapper, this.number);
+            var ballRegion = this.mapper.getRegionFromPoint(inspector.getBall().getPosition());
+            var inOurField = ballRegion.getCol() <= settings_1.MAPPER_COLS / 2;
+            var state = inOurField ? "DEFENSIVE" : "OFFENSIVE";
+            moveDestination = (0, settings_1.getMyExpectedPosition)(state, this.mapper, this.number);
+            if (!moveDestination)
+                return orders;
             var moveOrder = inspector.makeOrderMoveMaxSpeed(moveDestination);
-            if (this.holdPosition("DEFENSIVE", inspector)) {
+            if (this.holdPosition(state, inspector)) {
                 orders.push(inspector.makeOrderMoveToStop());
                 return orders;
             }
@@ -135,22 +151,32 @@ var MyBot = /** @class */ (function () {
             var myPosition = me.getPosition();
             if (!me || !myPosition)
                 return orders;
-            var ballHolderPosition = (_a = inspector.getBall()) === null || _a === void 0 ? void 0 : _a.getPosition();
-            if (!ballHolderPosition)
+            var ballPosition = (_a = inspector.getBall()) === null || _a === void 0 ? void 0 : _a.getPosition();
+            if (!ballPosition)
                 return orders;
-            var moveDestination = (0, settings_1.getMyExpectedPosition)("OFFENSIVE", this.mapper, this.number);
-            if (this.shouldIHelp(me, inspector.getMyTeamPlayers(), ballHolderPosition, 3)) {
-                moveDestination = ballHolderPosition;
-            }
-            if (lugo4node_1.geo.distanceBetweenPoints(myPosition, ballHolderPosition) <
-                3 * lugo4node_1.SPECS.PLAYER_SIZE ||
-                this.holdPosition(inspector)) {
-                var stopOrder = inspector.makeOrderMoveToStop();
-                orders.push(stopOrder);
+            var moveDestination = null;
+            /* if (this.shouldIHelp(me, inspector.getMyTeamPlayers(), ballPosition, 2)) {
+              const currentRegion = this.mapper.getRegionFromPoint(me.getPosition());
+              const y = currentRegion.getRow();
+              const x = currentRegion.getCol();
+              moveDestination = this.mapper.getRegion(y, x).getCenter();
+      
+              const moveOrder = inspector.makeOrderMoveMaxSpeed(moveDestination);
+              orders.push(moveOrder);
+              return orders;
+            } */
+            var ballRegion = this.mapper.getRegionFromPoint(inspector.getBall().getPosition());
+            var inOurField = ballRegion.getCol() <= settings_1.MAPPER_COLS / 2;
+            var state = inOurField ? "DEFENSIVE" : "OFFENSIVE";
+            moveDestination = (0, settings_1.getMyExpectedPosition)(state, this.mapper, this.number);
+            if (!moveDestination)
+                return orders;
+            var moveOrder = inspector.makeOrderMoveMaxSpeed(moveDestination);
+            if (this.holdPosition(state, inspector)) {
+                orders.push(inspector.makeOrderMoveToStop());
                 return orders;
             }
-            var myOrder = inspector.makeOrderMoveMaxSpeed(moveDestination);
-            orders.push(myOrder);
+            orders.push(moveOrder);
             return orders;
         }
         catch (e) {
