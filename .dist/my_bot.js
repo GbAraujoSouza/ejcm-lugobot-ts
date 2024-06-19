@@ -59,13 +59,22 @@ var MyBot = /** @class */ (function () {
             if (!ballPosition)
                 return orders;
             var moveDestination = null;
-            if (this.shouldIHelp(me, inspector.getMyTeamPlayers(), ballPosition, 2)) {
+            if (this.shouldMark(me, inspector.getMyTeamPlayers(), ballPosition, 2)) {
                 moveDestination = ballPosition;
                 var moveOrder_2 = inspector.makeOrderMoveMaxSpeed(moveDestination);
                 var catchOrder = inspector.makeOrderCatch();
                 orders.push(moveOrder_2, catchOrder);
                 return orders;
-            }
+            } /* else if (
+              this.shouldIHelp(me, inspector.getMyTeamPlayers(), ballPosition, 1)
+            ) {
+              moveDestination = ballPosition;
+              const moveOrder = inspector.makeOrderMoveMaxSpeed(moveDestination);
+              const catchOrder = inspector.makeOrderCatch();
+      
+              orders.push(moveOrder, catchOrder);
+              return orders;
+            } */
             var ballRegion = this.mapper.getRegionFromPoint(inspector.getBall().getPosition());
             var inOurField = ballRegion.getCol() <= settings_1.MAPPER_COLS / 2;
             var state = inOurField ? "DEFENSIVE" : "OFFENSIVE";
@@ -166,8 +175,8 @@ var MyBot = /** @class */ (function () {
               return orders;
             } */
             var ballRegion = this.mapper.getRegionFromPoint(inspector.getBall().getPosition());
-            var inOurField = ballRegion.getCol() <= settings_1.MAPPER_COLS / 2;
-            var state = inOurField ? "DEFENSIVE" : "OFFENSIVE";
+            var shouldGetDefensive = ballRegion.getCol() <= settings_1.MAPPER_COLS / 3;
+            var state = shouldGetDefensive ? "DEFENSIVE" : "OFFENSIVE";
             moveDestination = (0, settings_1.getMyExpectedPosition)(state, this.mapper, this.number);
             if (!moveDestination)
                 return orders;
@@ -250,7 +259,7 @@ var MyBot = /** @class */ (function () {
         });
         return closest;
     };
-    MyBot.prototype.shouldIHelp = function (me, myTeam, targetPosition, maxHelpers) {
+    MyBot.prototype.shouldMark = function (me, myTeam, targetPosition, maxHelpers) {
         var nearestPlayers = 0;
         var myPosition = me.getPosition();
         if (!myPosition)
@@ -258,6 +267,29 @@ var MyBot = /** @class */ (function () {
         var myDistance = lugo4node_1.geo.distanceBetweenPoints(myPosition, targetPosition);
         for (var _i = 0, myTeam_1 = myTeam; _i < myTeam_1.length; _i++) {
             var teamMate = myTeam_1[_i];
+            var teamMatePosition = teamMate.getPosition();
+            if (!teamMatePosition)
+                return false;
+            if (teamMate.getNumber() != me.getNumber() &&
+                lugo4node_1.geo.distanceBetweenPoints(teamMatePosition, targetPosition) <
+                    myDistance &&
+                myPosition.getX() < targetPosition.getX()) {
+                nearestPlayers++;
+                if (nearestPlayers >= maxHelpers) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    };
+    MyBot.prototype.shouldIHelp = function (me, myTeam, targetPosition, maxHelpers) {
+        var nearestPlayers = 0;
+        var myPosition = me.getPosition();
+        if (!myPosition)
+            return false;
+        var myDistance = lugo4node_1.geo.distanceBetweenPoints(myPosition, targetPosition);
+        for (var _i = 0, myTeam_2 = myTeam; _i < myTeam_2.length; _i++) {
+            var teamMate = myTeam_2[_i];
             var teamMatePosition = teamMate.getPosition();
             if (!teamMatePosition)
                 return false;

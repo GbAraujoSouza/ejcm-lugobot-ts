@@ -9,6 +9,7 @@ import {
   Region,
   geo,
   SPECS,
+  NewVector,
 } from "@lugobots/lugo4node";
 import {
   GameState,
@@ -92,14 +93,23 @@ export class MyBot implements Bot {
       if (!ballPosition) return orders;
 
       let moveDestination: Point | null = null;
-      if (this.shouldIHelp(me, inspector.getMyTeamPlayers(), ballPosition, 2)) {
+      if (this.shouldMark(me, inspector.getMyTeamPlayers(), ballPosition, 2)) {
         moveDestination = ballPosition;
         const moveOrder = inspector.makeOrderMoveMaxSpeed(moveDestination);
         const catchOrder = inspector.makeOrderCatch();
 
         orders.push(moveOrder, catchOrder);
         return orders;
-      }
+      } /* else if (
+        this.shouldIHelp(me, inspector.getMyTeamPlayers(), ballPosition, 1)
+      ) {
+        moveDestination = ballPosition;
+        const moveOrder = inspector.makeOrderMoveMaxSpeed(moveDestination);
+        const catchOrder = inspector.makeOrderCatch();
+
+        orders.push(moveOrder, catchOrder);
+        return orders;
+      } */
       const ballRegion = this.mapper.getRegionFromPoint(
         inspector.getBall().getPosition()
       );
@@ -221,8 +231,8 @@ export class MyBot implements Bot {
       const ballRegion = this.mapper.getRegionFromPoint(
         inspector.getBall().getPosition()
       );
-      const inOurField = ballRegion.getCol() <= MAPPER_COLS / 2;
-      const state = inOurField ? "DEFENSIVE" : "OFFENSIVE";
+      const shouldGetDefensive = ballRegion.getCol() <= MAPPER_COLS / 3;
+      const state = shouldGetDefensive ? "DEFENSIVE" : "OFFENSIVE";
       moveDestination = getMyExpectedPosition(state, this.mapper, this.number);
       if (!moveDestination) return orders;
       const moveOrder = inspector.makeOrderMoveMaxSpeed(moveDestination);
@@ -330,6 +340,36 @@ export class MyBot implements Bot {
       }
     });
     return closest;
+  }
+
+  private shouldMark(
+    me: Lugo.Player,
+    myTeam: Lugo.Player[],
+    targetPosition: Lugo.Point,
+    maxHelpers: number
+  ) {
+    let nearestPlayers = 0;
+    const myPosition = me.getPosition();
+    if (!myPosition) return false;
+
+    const myDistance = geo.distanceBetweenPoints(myPosition, targetPosition);
+    for (const teamMate of myTeam) {
+      const teamMatePosition = teamMate.getPosition();
+      if (!teamMatePosition) return false;
+
+      if (
+        teamMate.getNumber() != me.getNumber() &&
+        geo.distanceBetweenPoints(teamMatePosition, targetPosition) <
+          myDistance &&
+        myPosition.getX() < targetPosition.getX()
+      ) {
+        nearestPlayers++;
+        if (nearestPlayers >= maxHelpers) {
+          return false;
+        }
+      }
+    }
+    return true;
   }
 
   private shouldIHelp(
